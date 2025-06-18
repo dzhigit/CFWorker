@@ -14,8 +14,8 @@
 
 	 "kv_namespaces": [
     {
-      "binding": "ID",
-      "id": "b99165e6f7424f0aabe5412e9412269f"
+      "binding": "ID_Name",
+      "id": "Id_"
     }
   ]
 ,
