@@ -1,8 +1,8 @@
 **In Wrangler.jsonc **
 
 
-	 "kv_namespaces": 
-[
+	 "kv_namespaces":[
+
     {
       "binding": "Name_inName-(ID)",
       "id": "id_in_Value(Not IDUSER name- need id)"
