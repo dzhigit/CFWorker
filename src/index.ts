@@ -1,7 +1,6 @@
 export default {
-  async fetch(request, env) {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
-    const key = url.searchParams.get("key");
     const value = url.searchParams.get("value");
 
     const corsHeaders = {
@@ -10,31 +9,61 @@ export default {
       "Access-Control-Allow-Headers": "Content-Type",
     };
 
-    // Ответ на preflight-запрос
+    // OPTIONS
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
     }
 
-    if (request.method === "GET") {
-      if (!key) return new Response("Missing 'key'", { status: 400, headers: corsHeaders });
+    // 🟡 Выделяем ключ из пути
+    let path = url.pathname;
+    if (path === "/") path = "/index.html";
 
+    const isApiRequest = path !== "/index.html";
+    const key = isApiRequest ? path.slice(1) : null;
+
+    // ✅ GET /key → прочитать из KV
+    if (request.method === "GET" && key) {
       const stored = await env.ID.get(key);
       return new Response(stored ?? "null", {
         headers: {
-          ...corsHeaders,
           "content-type": "text/plain",
+          ...corsHeaders,
         },
       });
     }
 
-    if (request.method === "POST") {
-      if (!key || !value)
-        return new Response("Missing 'key' or 'value'", { status: 400, headers: corsHeaders });
-
+    // ✅ POST /key?value=... → записать в KV
+    if (request.method === "POST" && key && value) {
       await env.ID.put(key, value);
-      return new Response(`Stored: ${key} = ${value}`, { headers: corsHeaders });
+      return new Response(`Stored: ${key} = ${value}`, {
+        headers: corsHeaders,
+      });
     }
 
-    return new Response("Use GET or POST", { status: 405, headers: corsHeaders });
+    // 🧱 Отдать файл из public
+    const file = await env.ASSETS.get(path.slice(1), { type: "stream" });
+
+    if (!file) {
+      return new Response("Not found", { status: 404 });
+    }
+
+    const ext = path.split(".").pop() || "";
+    const mimeTypes: Record<string, string> = {
+      html: "text/html",
+      css: "text/css",
+      js: "application/javascript",
+      png: "image/png",
+      jpg: "image/jpeg",
+      svg: "image/svg+xml",
+    };
+
+    const contentType = mimeTypes[ext] ?? "application/octet-stream";
+
+    return new Response(file as ReadableStream, {
+      headers: {
+        "content-type": contentType,
+        ...corsHeaders,
+      },
+    });
   },
 };
